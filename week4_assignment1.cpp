@@ -108,10 +108,10 @@ private:
     static DJIMotor* s_allMotors  [CAN_HANDLER_NUMBER][3][4];
     static bool s_motorsExist     [CAN_HANDLER_NUMBER][3][4];
 
-    short motorID_0;
-    short canID_0;
-    motorType type;
-    CANHandler::CANBus canBus;
+    short motorID_0; // physical ID of the motor, 1-8 since 8 motors can be attached to one CAN bus 
+    short canID_0; 
+    motorType type; // M3508, M2006, or GM6020
+    CANHandler::CANBus canBus; // CANBUS_1, CANBUS_2, NOBUS
     std::string name;
 
     enum motorMoveMode{
@@ -135,7 +135,7 @@ public:
         this -> type = type;
         this -> name = name;
 
-        if(type == GM6020)
+        if(type == GM6020) // GM6020's act as M3508s shifted forwards by 4
             canID_0 += 4;
 
         s_allMotors[canBus][canID_0 / 4][canID_0 % 4] = this;
@@ -143,11 +143,13 @@ public:
     }
 
     void setPower(int power){
+         //raw current to run with with a range of -20A to 20A
+         //INT16_T_MAX and INT15_T_MAX give the input domain
         mode = POW;
         value = power;
     }
 
-    void setSpeed(int speed){
+    void setSpeed(int speed){ //RPM
         mode = SPD;
         value = speed;
     }
@@ -203,12 +205,32 @@ void remoteRead(bool debug = false){
 // Use prints and getData() for debugging purposes
 
 int main(){
+    //create a remote object and read the remote
+    Remote remote;
+    /*create a DJI motor object with motorID(physical ID of the motor),
+     CanBus using the CANHandler enum, motorType using 
+     */
+
+    DJIMotor motor(1, CANHandler::CANBus::CANBUS_1, motorType::M3508, "motor1" );
+    int leftX_value;
+    while(true){
+        remote.read(true);
+        leftX_value = remote.leftX();
     
-    //SETUP CODE HERE
-
-    while(true){ //main loop
-
-        //MAIN CODE HERE
+        if (remote.leftSwitch() == Remote::SwitchState::UP){
+           //robot is in power mode 
+            motor.setPower(leftX_value * 20);
+        }
+        else if (remote.leftSwitch() == Remote::SwitchState::MID){
+            //robot is in speed mode 
+            motor.setSpeed(leftX_value * 5);
+        }
+        else if (remote.leftSwitch() == Remote::SwitchState::DOWN){
+            //robot is in position mode
+            motor.setPosition(leftX_value * 10);
+        }    
 
     }
+
+   
 }
